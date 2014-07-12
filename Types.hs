@@ -1,31 +1,26 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
-
-import Data.Foldable
-import Data.Traversable
-
 data MoleculeType = 
     TBool Bool
   | TInt Int
     deriving (Show, Eq)
 
-data MoleculeExpr e = 
+data MoleculeExpr = 
     EVar String
   | ETrue | EFalse
   | EInt Int
-  | EIf e e e
-  | ELet String e e
-  | e :+: e
-    deriving (Show, Eq, Functor, Foldable, Traversable)
+  | EIf MoleculeExpr MoleculeExpr MoleculeExpr
+  | ELet String MoleculeExpr MoleculeExpr
+  | MoleculeExpr :+: MoleculeExpr
+    deriving (Show, Eq)
 
-data ASTCrumb e = 
-    CIfPred e e -- Came from predicate
-  | CIfThen e e -- Came from "then"
-  | CIfElse e e -- Came from "else"
-  | CPlusA e               -- Came from (a +)
-  | CPlusB e               -- Came from (+ b)
-  | CLetBe String e        -- Came from Let x be (expr) in ...
-  | CLetIn String e        -- Came from Let x be ... in (expr)
-    deriving (Show, Eq, Functor, Foldable, Traversable)
+data ASTCrumb = 
+    CIfPred MoleculeExpr MoleculeExpr -- Came from predicate
+  | CIfThen MoleculeExpr MoleculeExpr -- Came from "then"
+  | CIfElse MoleculeExpr MoleculeExpr -- Came from "else"
+  | CPlusA MoleculeExpr               -- Came from (a +)
+  | CPlusB MoleculeExpr               -- Came from (+ b)
+  | CLetBe String MoleculeExpr        -- Came from Let x be (expr) in ...
+  | CLetIn String MoleculeExpr        -- Came from Let x be ... in (expr)
+    deriving (Show, Eq)
 
-data ASTZipper e = ASTZipper e [ASTCrumb e]
-  deriving (Show, Eq, Functor, Foldable, Traversable)
+data ASTZipper = ASTZipper MoleculeExpr [ASTCrumb]
+  deriving (Show, Eq)

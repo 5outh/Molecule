@@ -24,3 +24,6 @@ data ASTCrumb =
 
 data ASTZipper = ASTZipper MoleculeExpr [ASTCrumb]
   deriving (Show, Eq)
+
+testAST :: MoleculeExpr
+testAST = EIf (EVar "a") ETrue (EIf ETrue (EInt 0) (EInt 10 :+: EInt 10))

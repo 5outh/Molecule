@@ -6,26 +6,21 @@ import           Types
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Control.Monad.Identity
 import           Data.Map             as M
 import           Data.Set             as S
 import           Lens.Family2
 import           Lens.Family2.Stock
 
-testExpr :: MoleculeExpr
-testExpr  = EApp (EAbs "x" (EVar "x" :+: EVar "x")) (EInt 10)
-testExpr2 :: MoleculeExpr
-testExpr2 = EAbs "x" (EVar "x" :+: EVar "x")
-failExpr :: MoleculeExpr
-failExpr  = ETrue :+: EInt 10
-failExpr2 :: MoleculeExpr
-failExpr2 = EAbs "a" (EVar "a" :|: EVar "b")
-
 type TypeEnv     = M.Map Name MoleculeType
 type Scope       = S.Set Name -- List of names in scope
-type Typechecker = ExceptT MoleculeError (ReaderT (Maybe MoleculeCrumb, Scope) (StateT TypeEnv IO))
+type Typechecker = ExceptT MoleculeError (ReaderT (Maybe MoleculeCrumb, Scope) (StateT TypeEnv Identity))
 
---runTypecheck :: Maybe MoleculeCrumb -> Scope -> TypeEnv -> MoleculeExpr -> Either MoleculeError MoleculeType
-runTypecheck crumb scope te expr = evalStateT (runReaderT (runExceptT (typecheck expr)) (crumb, scope)) te
+runTypecheck :: Maybe MoleculeCrumb -> Scope -> TypeEnv -> MoleculeExpr -> Either MoleculeError MoleculeType
+runTypecheck crumb scope te expr = runIdentity $ evalStateT (runReaderT (runExceptT (check expr)) (crumb, scope)) te
+
+typecheck :: MoleculeExpr -> Either MoleculeError MoleculeType
+typecheck = runTypecheck Nothing S.empty M.empty
 
 addBinding :: Name -> MoleculeType -> Typechecker MoleculeType
 addBinding name typ = modify (M.insert name typ) >> return typ
@@ -40,8 +35,8 @@ withCrumbAndScopedVar :: Typechecker a -> MoleculeCrumb -> Name -> Typechecker a
 withCrumbAndScopedVar action crumb var =
   local ((_1 .~ Just crumb) . (_2 %~ S.insert var)) action
 
-typecheck :: MoleculeExpr -> Typechecker MoleculeType
-typecheck (EVar name) = do
+check :: MoleculeExpr -> Typechecker MoleculeType
+check (EVar name) = do
   (crumb, scope) <- ask
   if S.notMember name scope
   then throwError . TypeError $ "variable not in scope: " ++ name
@@ -60,7 +55,7 @@ typecheck (EVar name) = do
             Nothing -> throwError . TypeError $ "cannot unify type for variable " ++ nm
           CApp1 _ -> throwError . TypeError $ name ++ " is not a function"
           CApp2 e -> do
-            t <- typecheck e
+            t <- check e
             case t of
               TLam v _ -> addBinding name v
               _ -> throwError . TypeError $ "cannot apply non-function to " ++ name
@@ -80,56 +75,52 @@ typecheck (EVar name) = do
             TLam _ _ -> addBinding name t
             _        -> throwError . TypeError $ name ++ " is not a function"
           CApp2 e -> do
-            t' <- typecheck e
+            t' <- check e
             case t' of
               TLam typ _ | typ == t -> addBinding name t
                          | otherwise -> throwError . TypeError $ show e ++ " is not a function"
               _ -> throwError . TypeError $ show e ++ " is not a function"
 
-typecheck (e1 :+: e2) = do
-  e1' <- typecheck e1 `withCrumb` CPlusA e2
-  e2' <- typecheck e2 `withCrumb` CPlusB e1
+check (e1 :+: e2) = do
+  e1' <- check e1 `withCrumb` CPlusA e2
+  e2' <- check e2 `withCrumb` CPlusB e1
   bindings <- get
-  liftIO $ print bindings
   case (e1', e2') of
     (TInt, TInt) -> return TInt
     (_, TInt)    -> throwError . TypeError $ "type error in the first argument of +"
     (TInt, _)    -> throwError . TypeError $ "type error in the second argument of +"
     _            -> throwError . TypeError $ "type error in both arguments of +"
 
-typecheck (e1 :|: e2) = do
-  e1' <- typecheck e1 `withCrumb` COrA e2
-  e2' <- typecheck e2 `withCrumb` COrB e1
+check (e1 :|: e2) = do
+  e1' <- check e1 `withCrumb` COrA e2
+  e2' <- check e2 `withCrumb` COrB e1
   case (e1', e2') of
     (TBool, TBool) -> return TBool
     (_, TBool)     -> throwError . TypeError $ "type error in the first argument of |"
     (TBool, _)     -> throwError . TypeError $ "type error in the second argument of |"
     _              -> throwError . TypeError $ "type error in both arguments of |"
 
-typecheck (EApp e1 e2) = do
-  t' <- typecheck e2 `withCrumb` CApp2 e1
+check (EApp e1 e2) = do
+  t' <- check e2 `withCrumb` CApp2 e1
   case e1 of
     EAbs name expr -> do
       addBinding name t'
-      t <- withCrumbAndScopedVar (typecheck expr) (CAbs name) name
+      t <- withCrumbAndScopedVar (check expr) (CAbs name) name
       return t
     _ -> do
-      t <- typecheck e1 `withCrumb` CApp1 e1
+      t <- check e1 `withCrumb` CApp1 e1
       case t of 
         TLam t1 t2 | t1 == t'  -> return t2
                    | otherwise -> throwError . TypeError $ "expecting " ++ show t1 ++ " but got " ++ show t' ++ " in function application"  
         _ -> throwError . TypeError $ "expecting a function, but got " ++ show e1 ++ " in function application"
 
-typecheck (EAbs name expr) = do
-  t   <- withCrumbAndScopedVar (typecheck expr) (CAbs name) name
+check (EAbs name expr) = do
+  t   <- withCrumbAndScopedVar (check expr) (CAbs name) name
   env <- get
   case M.lookup name env of
     Nothing -> throwError . TypeError $ "cannot infer type of " ++ name
     Just t' -> return $ TLam t' t
 
-typecheck ETrue    = return TBool
-typecheck EFalse   = return TBool
-typecheck (EInt _) = return TInt
-
---test :: MoleculeExpr -> Either MoleculeError MoleculeType
-test = runTypecheck Nothing S.empty M.empty
+check ETrue    = return TBool
+check EFalse   = return TBool
+check (EInt _) = return TInt

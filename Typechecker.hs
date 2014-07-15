@@ -116,7 +116,8 @@ typecheck (EApp e1 e2) = do
     _ -> do
       t <- typecheck e1 `withCrumb` CApp1 e1
       case t of 
-        TLam t1 t2 | t1 == t' -> return t2
+        TLam t1 t2 | t1 == t'  -> return t2
+                   | otherwise -> throwError . TypeError $ "expecting " ++ show t1 ++ " but got " ++ show t' ++ " in function application"  
         _ -> throwError . TypeError $ "expecting a function, but got " ++ show e1 ++ " in function application"
 
 typecheck (EAbs name expr) = do

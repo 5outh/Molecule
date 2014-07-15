@@ -18,6 +18,7 @@ failExprs = [
     ETrue :+: EInt 10
   , EAbs "a" (EVar "a" :|: EVar "b")
   , EVar "y"
+  , EApp (EApp (EAbs "x" (EAbs "y" (EVar "x" :+: EVar "y"))) (EInt 10)) (ETrue)
   ]
 
 --check :: MoleculeExpr -> Either MoleculeError MoleculeType

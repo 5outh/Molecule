@@ -105,9 +105,9 @@ check (EApp e1 e2) = do
   case e1 of
     EAbs name expr -> do
       addBinding name t'
-      t <- withCrumbAndScopedVar (check expr) (CAbs name) name
-      return t
+      withCrumbAndScopedVar (check expr) (CAbs name) name
     _ -> do
+      -- NB. e1 isn't a top-level lambda abstraction but it might typecheck to one.
       t <- check e1 `withCrumb` CApp1 e1
       case t of 
         TLam t1 t2 | t1 == t'  -> return t2

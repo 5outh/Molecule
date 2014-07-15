@@ -22,10 +22,10 @@ failExpr2 = EAbs "a" (EVar "a" :|: EVar "b")
 
 type TypeEnv     = M.Map Name MoleculeType
 type Scope       = S.Set Name -- List of names in scope
-type Typechecker = ExceptT MoleculeError (ReaderT (Maybe MoleculeCrumb, Scope) (State TypeEnv))
+type Typechecker = ExceptT MoleculeError (ReaderT (Maybe MoleculeCrumb, Scope) (StateT TypeEnv IO))
 
-runTypecheck :: Maybe MoleculeCrumb -> Scope -> TypeEnv -> MoleculeExpr -> Either MoleculeError MoleculeType
-runTypecheck crumb scope te expr = evalState (runReaderT (runExceptT (typecheck expr)) (crumb, scope)) te
+--runTypecheck :: Maybe MoleculeCrumb -> Scope -> TypeEnv -> MoleculeExpr -> Either MoleculeError MoleculeType
+runTypecheck crumb scope te expr = evalStateT (runReaderT (runExceptT (typecheck expr)) (crumb, scope)) te
 
 addBinding :: Name -> MoleculeType -> Typechecker MoleculeType
 addBinding name typ = modify (M.insert name typ) >> return typ
@@ -89,6 +89,8 @@ typecheck (EVar name) = do
 typecheck (e1 :+: e2) = do
   e1' <- typecheck e1 `withCrumb` CPlusA e2
   e2' <- typecheck e2 `withCrumb` CPlusB e1
+  bindings <- get
+  liftIO $ print bindings
   case (e1', e2') of
     (TInt, TInt) -> return TInt
     (_, TInt)    -> throwError . TypeError $ "type error in the first argument of +"
@@ -105,12 +107,17 @@ typecheck (e1 :|: e2) = do
     _              -> throwError . TypeError $ "type error in both arguments of |"
 
 typecheck (EApp e1 e2) = do
-  t  <- typecheck e1 `withCrumb` CApp1 e2
   t' <- typecheck e2 `withCrumb` CApp2 e1
-  case t of
-    TLam t1 _ | t1 == t'  -> return t1
-              | otherwise -> throwError . TypeError $ "type error in function application"
-    _ -> throwError . TypeError $ "type error in function application"
+  case e1 of
+    EAbs name expr -> do
+      addBinding name t'
+      t <- withCrumbAndScopedVar (typecheck expr) (CAbs name) name
+      return t
+    _ -> do
+      t <- typecheck e1 `withCrumb` CApp1 e1
+      case t of 
+        TLam t1 t2 | t1 == t' -> return t2
+        _ -> throwError . TypeError $ "expecting a function, but got " ++ show e1 ++ " in function application"
 
 typecheck (EAbs name expr) = do
   t   <- withCrumbAndScopedVar (typecheck expr) (CAbs name) name
@@ -123,5 +130,5 @@ typecheck ETrue    = return TBool
 typecheck EFalse   = return TBool
 typecheck (EInt _) = return TInt
 
-test :: MoleculeExpr -> Either MoleculeError MoleculeType
+--test :: MoleculeExpr -> Either MoleculeError MoleculeType
 test = runTypecheck Nothing S.empty M.empty

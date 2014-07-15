@@ -1,5 +1,5 @@
-import Types
-import Typechecker
+--import Types
+--import Typechecker
 
 main :: IO ()
 main = return ()

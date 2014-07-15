@@ -1,8 +1,8 @@
 module Types where
 
-import Data.Map as M
+import           Data.Map as M
 
-data MoleculeType = 
+data MoleculeType =
     TBool
   | TInt
   | TLam MoleculeType MoleculeType -- Function type
@@ -10,22 +10,22 @@ data MoleculeType =
 
 type Name = String
 
-data MoleculeValue = 
+data MoleculeValue =
     VBool Bool
   | VInt Int
   | VLam Env Name MoleculeExpr
 
-data MoleculeExpr = 
+data MoleculeExpr =
     EVar Name
   | ETrue | EFalse
   | EInt Int
   | EAbs Name MoleculeExpr
   | EApp MoleculeExpr MoleculeExpr
-  | MoleculeExpr :+: MoleculeExpr 
+  | MoleculeExpr :+: MoleculeExpr
   | MoleculeExpr :|: MoleculeExpr
     deriving (Show, Eq)
 
-data MoleculeCrumb = 
+data MoleculeCrumb =
     CPlusA MoleculeExpr  -- Came from (a +)
   | CPlusB MoleculeExpr  -- Came from (+ b)
   | COrA MoleculeExpr    -- Came from (a |)
@@ -35,7 +35,7 @@ data MoleculeCrumb =
   | CApp2 MoleculeExpr   -- Came from second arg of application
     deriving (Show, Eq)
 
-data MoleculeError = 
+data MoleculeError =
   TypeError String
   deriving (Show, Eq)
 

@@ -15,7 +15,7 @@ testExpr :: MoleculeExpr
 testExpr  = EApp (EAbs "x" (EVar "x" :+: EVar "x")) (EInt 10)
 testExpr2 = EAbs "x" (EVar "x" :+: EVar "x")
 testExpr3 = EAbs "a" (EAbs "b" (EVar "a" :|: EVar "b"))
-failExpr  = ETrue :+: (EInt 10)
+failExpr  = ETrue :+: EInt 10
 failExpr2 = EAbs "a" (EVar "a" :|: EVar "b") -- succeeds with Bool -> Bool due to lack of scope
 
 type TypeEnv     = M.Map Name MoleculeType
@@ -32,7 +32,7 @@ withCrumb :: Typechecker a -> MoleculeCrumb -> Typechecker a
 withCrumb action crumb = local (_1 .~ Just crumb) action
 
 withScopedVar :: Typechecker a -> Name -> Typechecker a
-withScopedVar action var = local (_2 %~ (S.insert var)) action 
+withScopedVar action var = local (_2 %~ S.insert var) action 
 
 withCrumbAndScopedVar :: Typechecker a -> MoleculeCrumb -> Name -> Typechecker a
 withCrumbAndScopedVar action crumb var = 
@@ -56,11 +56,11 @@ typecheck (EVar name) = do
           CAbs nm -> case M.lookup nm env of 
             Just t  -> addBinding name t 
             Nothing -> throwError . TypeError $ "cannot unify type for variable " ++ nm
-          CApp1 e -> throwError . TypeError $ name ++ " is not a function"
+          CApp1 _ -> throwError . TypeError $ name ++ " is not a function"
           CApp2 e -> do
             t <- typecheck e
             case t of 
-              TLam v e -> addBinding name v
+              TLam v _ -> addBinding name v
               _ -> throwError . TypeError $ "cannot apply non-function to " ++ name
       Just t -> case crumb of
         Nothing -> addBinding name t
@@ -73,13 +73,13 @@ typecheck (EVar name) = do
                    | otherwise -> throwError . TypeError $ "type error in the first argument of |"
           COrB   _ | t == TBool -> addBinding name TBool
                    | otherwise -> throwError . TypeError $ "type error in the second argument of |"
-          CAbs nm -> addBinding name t
-          CApp1 e -> case t of
+          CAbs _ -> addBinding name t
+          CApp1 _ -> case t of
             TLam _ _ -> addBinding name t 
             _        -> throwError . TypeError $ name ++ " is not a function"
           CApp2 e -> do
             t' <- typecheck e
-            case t of
+            case t' of
               TLam typ _ | typ == t -> addBinding name t
                          | otherwise -> throwError . TypeError $ show e ++ " is not a function"
               _ -> throwError . TypeError $ show e ++ " is not a function" 
@@ -96,17 +96,17 @@ typecheck (e1 :+: e2) = do
 typecheck (e1 :|: e2) = do
   e1' <- typecheck e1 `withCrumb` COrA e2
   e2' <- typecheck e2 `withCrumb` COrB e1
-  case (e2', e2') of
+  case (e1', e2') of
     (TBool, TBool) -> return TBool
-    (t, TBool)     -> throwError . TypeError $ "type error in the first argument of |"
-    (TBool, t)     -> throwError . TypeError $ "type error in the second argument of |"
+    (_, TBool)     -> throwError . TypeError $ "type error in the first argument of |"
+    (TBool, _)     -> throwError . TypeError $ "type error in the second argument of |"
     _              -> throwError . TypeError $ "type error in both arguments of |"
 
 typecheck (EApp e1 e2) = do
   t  <- typecheck e1 `withCrumb` CApp1 e2
   t' <- typecheck e2 `withCrumb` CApp2 e1
   case t of
-    TLam t1 t2 | t1 == t'  -> return t1
+    TLam t1 _ | t1 == t'  -> return t1
                | otherwise -> throwError . TypeError $ "type error in function application"
     _ -> throwError . TypeError $ "type error in function application"  
 
@@ -121,4 +121,5 @@ typecheck ETrue    = return TBool
 typecheck EFalse   = return TBool
 typecheck (EInt _) = return TInt
 
+test :: MoleculeExpr -> Either MoleculeError MoleculeType
 test = runTypecheck Nothing S.empty M.empty

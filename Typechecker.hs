@@ -110,13 +110,15 @@ check (EApp e1 e2) = do
       addBinding name t'
       withCrumbAndScopedVar (check expr) (CAbs name) name
     _ -> do
-      -- NB. e1 isn't a top-level lambda abstraction but it might typecheck to one.
+      -- NB. Even if e1 isn't a top-level lambda abstraction it might typecheck to one.
       t <- check e1 `withCrumb` CApp1 e1
       case t of 
         TLam t1 t2 | t1 == t'  -> return t2
                    | otherwise -> typeError $ "expecting " ++ show t1 ++ " but got " ++ show t' ++ " in function application"  
         _ -> typeError $ "expecting a function, but got " ++ show e1 ++ " in function application"
 
+-- \x. x + 8 fails
+-- EAbs "x" (EVar "x" :+: EInt 8)
 check (EAbs name expr) = do
   t   <- withCrumbAndScopedVar (check expr) (CAbs name) name
   env <- get
@@ -127,3 +129,4 @@ check (EAbs name expr) = do
 check ETrue    = return TBool
 check EFalse   = return TBool
 check (EInt _) = return TInt
+

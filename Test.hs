@@ -15,6 +15,7 @@ testExprs = [
   , ETrue
   , EFalse
   , EApp (EAbs "x" ETrue) (EInt 10)
+  , EAbs "x" ((EVar "x") :+: EInt 80)
   ]
 
 failExprs :: [MoleculeExpr]

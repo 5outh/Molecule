@@ -17,7 +17,8 @@ data MoleculeValue =
 
 data MoleculeExpr =
     EVar Name
-  | ETrue | EFalse
+  | ETrue 
+  | EFalse
   | EInt Int
   | EAbs Name MoleculeExpr
   | EApp MoleculeExpr MoleculeExpr
@@ -36,7 +37,8 @@ data MoleculeCrumb =
     deriving (Show, Eq)
 
 data MoleculeError =
-  TypeError String
+    TypeError String
+  | ParseError String
   deriving (Show, Eq)
 
 type Env = M.Map Name MoleculeValue

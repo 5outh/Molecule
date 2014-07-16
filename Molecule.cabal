@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 executable Molecule
   main-is:             Main.hs
-  -- other-modules:       
+  other-modules:       Parser.hs, Types.hs, Typechecker.hs       
   other-extensions:    NoMonomorphismRestriction
   build-depends:       base >=4.7 && <4.8, mtl >=2.2 && <2.3, lens-family >=1.0 && <1.1, containers >=0.5 && <0.6
   -- hs-source-dirs:      

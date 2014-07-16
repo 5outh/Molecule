@@ -8,16 +8,6 @@ import Text.Parsec.Language
 import Text.Parsec.Expr
 import Control.Applicative
 
-{-
-want expressions like
-80
-t
-\x. 80
-\x. \y. x + y
-t | f
-(\x. x | f) t
--}
-
 moleculeDef :: LanguageDef st
 moleculeDef = emptyDef
   { T.opLetter = oneOf "+|"
@@ -42,7 +32,7 @@ opTable = [
   , binary "|" (:|:) AssocLeft]
   , [app] ]
 
-app = Infix space AssocRight
+app = Infix space AssocLeft
   where space = whiteSpace
           *> notFollowedBy (choice . map reservedOp $ T.reservedOpNames moleculeDef)
           *> pure (\x y -> EApp x y)

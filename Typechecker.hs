@@ -116,9 +116,7 @@ check (EApp e1 e2) = do
         TLam t1 t2 | t1 == t'  -> return t2
                    | otherwise -> typeError $ "expecting " ++ show t1 ++ " but got " ++ show t' ++ " in function application"  
         _ -> typeError $ "expecting a function, but got " ++ show e1 ++ " in function application"
-
--- \x. x + 8 fails
--- EAbs "x" (EVar "x" :+: EInt 8)
+        
 check (EAbs name expr) = do
   t   <- withCrumbAndScopedVar (check expr) (CAbs name) name
   env <- get
@@ -129,4 +127,3 @@ check (EAbs name expr) = do
 check ETrue    = return TBool
 check EFalse   = return TBool
 check (EInt _) = return TInt
-

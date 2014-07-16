@@ -21,3 +21,29 @@ There are only a handful of commands that Molecule can handle:
 - `:q` quits the REPL
 - Anything else attempts to be interpreted as an expression, typechecked and evaluated.
 
+An example `mi` session:
+
+```haskell
+> t
+t
+> 10
+10
+> 10 + 20
+30
+> f | f
+f
+> (\x.x+x) 30
+60
+> \x.\y.x+y
+\x . \y . x + y
+> :t \x.\y.x+y
+\x . \y . x + y : Int -> Int -> Int
+> :t (\x.\y.x+y) 10
+(\x . \y . x + y) 10 : Int -> Int
+> :t (\x.\y.x+y) 10 10
+((\x . \y . x + y) 10) 10 : Int
+> (\x.\y.x+y) 10 10
+20
+> :q
+```
+peace!

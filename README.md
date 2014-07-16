@@ -1,6 +1,8 @@
 Molecule
 ========
 
+![molecule logo](./molecule-logo.png)
+
 A teeny-tiny statically typed programming language with inference.
 
 Molecule is a contained experiment on using a zipper-based scheme for type inference in a monomorphic,

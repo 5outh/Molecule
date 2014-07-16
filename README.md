@@ -1,6 +1,3 @@
-Molecule
-========
-
 ![molecule logo](./molecule-logo.png)
 
 A teeny-tiny statically typed programming language with inference.

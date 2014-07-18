@@ -14,7 +14,17 @@ import           Lens.Family2.Stock
 
 type TypeEnv     = M.Map Name MoleculeType
 type Scope       = S.Set Name -- List of names in scope
+-- @TODO Type environment actually probably needs to be a normal Env.
 type Typechecker = ExceptT MoleculeError (ReaderT (Maybe MoleculeCrumb, Scope) (StateT TypeEnv Identity))
+
+subst :: Name -> MoleculeExpr -> MoleculeExpr -> MoleculeExpr
+subst var sub e = case e of
+  EVar c | var == c -> sub
+  EAbs nm e' -> EAbs nm (subst var sub e')
+  EApp e1 e2 -> EApp (subst var sub e1) (subst var sub e2)
+  e1 :+: e2  -> subst var sub e1 :+: subst var sub e2
+  e1 :|: e2  -> subst var sub e1 :|: subst var sub e2
+  v          -> v
 
 runTypecheck :: Maybe MoleculeCrumb -> Scope -> TypeEnv -> MoleculeExpr -> Either MoleculeError MoleculeType
 runTypecheck crumb scope te expr = runIdentity $ evalStateT (runReaderT (runExceptT (check expr)) (crumb, scope)) te
@@ -44,11 +54,13 @@ check (EVar name) = do
   if S.notMember name scope
   then typeError $ "variable not in scope: " ++ name
   else do
+    -- @REFACTOR: Get type later, from expression in bindings
     env <- get
     case M.lookup name env of
       Nothing -> case crumb of
         Nothing -> typeError $ "cannot unify type for top-level variable " ++ name
         Just x -> case x of
+          -- @REFACTOR: addBinding -> set var to expression
           CPlusA _ -> addBinding name TInt
           CPlusB _ -> addBinding name TInt
           COrA   _ -> addBinding name TBool
@@ -56,7 +68,7 @@ check (EVar name) = do
           CAbs nm -> case M.lookup nm env of
             Just t  -> addBinding name t
             Nothing -> typeError $ "cannot unify type for variable " ++ nm
-          CApp1 _ -> typeError $ name ++ " is not a function"
+          CApp1 e -> typeError $ name ++ " is not a function"
           CApp2 e -> do
             t <- check e
             case t of
@@ -74,6 +86,7 @@ check (EVar name) = do
           COrB   _ | t == TBool -> addBinding name TBool
                    | otherwise -> typeError $ "type error in the second argument of |"
           CAbs _ -> addBinding name t
+          -- @TODO: This is a trouble area, I suspect.
           CApp1 _ -> case t of
             TLam _ _ -> addBinding name t
             _        -> typeError $ name ++ " is not a function"
@@ -87,7 +100,6 @@ check (EVar name) = do
 check (e1 :+: e2) = do
   e1' <- check e1 `withCrumb` CPlusA e2
   e2' <- check e2 `withCrumb` CPlusB e1
-  bindings <- get
   case (e1', e2') of
     (TInt, TInt) -> return TInt
     (_, TInt)    -> typeError $ "type error in the first argument of +, namely " ++ show e1 
@@ -104,14 +116,14 @@ check (e1 :|: e2) = do
     _              -> typeError $ "type error in both arguments of |, namely " ++ show e1 ++ " and " ++ show e2
 
 check (EApp e1 e2) = do
-  t' <- check e2 `withCrumb` CApp2 e1
   case e1 of
     EAbs name expr -> do
-      addBinding name t'
-      withCrumbAndScopedVar (check expr) (CAbs name) name
+      check (subst name e2 expr) `withCrumb` (CApp1 e2)
     _ -> do
-      -- NB. Even if e1 isn't a top-level lambda abstraction it might typecheck to one.
-      t <- check e1 `withCrumb` CApp1 e1
+       --NB. Even if e1 isn't a top-level lambda abstraction it might typecheck to one.
+      -- @TODO: This is inconsistent
+      t  <- check e1 `withCrumb` CApp1 e2
+      t' <- check e2 `withCrumb` CApp2 e1
       case t of 
         TLam t1 t2 | t1 == t'  -> return t2
                    | otherwise -> typeError $ "expecting " ++ show t1 ++ " but got " ++ show t' ++ " in function application"  
@@ -119,6 +131,7 @@ check (EApp e1 e2) = do
         
 check (EAbs name expr) = do
   t   <- withCrumbAndScopedVar (check expr) (CAbs name) name
+  -- @REFACTOR: This can get/lookup, THEN check type and carry on.
   env <- get
   case M.lookup name env of
     Nothing -> typeError $ "cannot infer type of " ++ name

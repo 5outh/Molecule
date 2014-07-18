@@ -16,7 +16,9 @@ testExprs = [
   , EFalse
   , EApp (EAbs "x" ETrue) (EInt 10)
   , EAbs "x" ((EVar "x") :+: EInt 80)
-  , ELam "x" ((EVar "x") :|: ETrue)
+  , EAbs "x" ((EVar "x") :|: ETrue)
+  , EApp (EAbs "x" ETrue) (EVar "x")
+  , EApp (EAbs "x" $ EApp (EVar "x") (EInt 10)) (EAbs "y" (EVar "y"))
   ]
 
 failExprs :: [MoleculeExpr]
@@ -25,7 +27,6 @@ failExprs = [
   , EAbs "a" (EVar "a" :|: EVar "b")
   , EVar "y"
   , EApp (EApp (EAbs "x" (EAbs "y" (EVar "x" :+: EVar "y"))) (EInt 10)) (ETrue)
-  , EApp (EAbs "x" ETrue) (EVar "x")
   , EAbs "x" (EVar "x")
   , EAbs "x" ETrue
   ]
@@ -53,4 +54,4 @@ test = do
   mapM_ putStrLn $ zipWith report failExprs lefts
   guard (all isRight rights)
   guard (all isLeft lefts)
-  print "tests succeeded."
+  putStrLn "\ntests passing."

@@ -60,10 +60,8 @@ instance Show MoleculeExpr where
   show = showExpr
 
 data MoleculeCrumb =
-    CPlusA MoleculeExpr  -- Came from (a +)
-  | CPlusB MoleculeExpr  -- Came from (+ b)
-  | COrA MoleculeExpr    -- Came from (a |)
-  | COrB MoleculeExpr    -- Came from (| a)
+    CPlus MoleculeExpr  -- Came from (+ b)
+  | COr MoleculeExpr    -- Came from (| a)
   | CAbs Name            -- Came from an abstraction
   | CApp1 MoleculeExpr   -- Came from first arg of application
   | CApp2 MoleculeExpr   -- Came from second arg of application

@@ -60,11 +60,8 @@ check (EVar name) = do
       Nothing -> case crumb of
         Nothing -> typeError $ "cannot unify type for top-level variable " ++ name
         Just x -> case x of
-          -- @REFACTOR: addBinding -> set var to expression
-          CPlusA _ -> addBinding name TInt
-          CPlusB _ -> addBinding name TInt
-          COrA   _ -> addBinding name TBool
-          COrB   _ -> addBinding name TBool
+          CPlus _ -> addBinding name TInt
+          COr   _ -> addBinding name TBool
           CAbs nm -> case M.lookup nm env of
             Just t  -> addBinding name t
             Nothing -> typeError $ "cannot unify type for variable " ++ nm
@@ -77,14 +74,10 @@ check (EVar name) = do
       Just t -> case crumb of
         Nothing -> addBinding name t
         Just cb -> case cb of
-          CPlusA _ | t == TInt -> addBinding name TInt
-                   | otherwise -> typeError $ "type error in the first argument of +"
-          CPlusB _ | t == TInt -> addBinding name TInt
-                   | otherwise -> typeError $ "type error in the second argument of +"
-          COrA   _ | t == TBool -> addBinding name TBool
-                   | otherwise -> typeError $ "type error in the first argument of |"
-          COrB   _ | t == TBool -> addBinding name TBool
-                   | otherwise -> typeError $ "type error in the second argument of |"
+          CPlus _ | t == TInt -> addBinding name TInt
+                   | otherwise -> typeError $ "type error in +"
+          COr   _ | t == TBool -> addBinding name TBool
+                   | otherwise -> typeError $ "type error in |"
           CAbs _ -> addBinding name t
           -- @TODO: This is a trouble area, I suspect.
           CApp1 _ -> case t of
@@ -98,8 +91,8 @@ check (EVar name) = do
               _ -> typeError $ show e ++ " is not a function"
 
 check (e1 :+: e2) = do
-  e1' <- check e1 `withCrumb` CPlusA e2
-  e2' <- check e2 `withCrumb` CPlusB e1
+  e1' <- check e1 `withCrumb` CPlus e2
+  e2' <- check e2 `withCrumb` CPlus e1
   case (e1', e2') of
     (TInt, TInt) -> return TInt
     (_, TInt)    -> typeError $ "type error in the first argument of +, namely " ++ show e1 
@@ -107,8 +100,8 @@ check (e1 :+: e2) = do
     _            -> typeError $ "type error in both arguments of +, namely " ++ show e1 ++ " and " ++ show e2
 
 check (e1 :|: e2) = do
-  e1' <- check e1 `withCrumb` COrA e2
-  e2' <- check e2 `withCrumb` COrB e1
+  e1' <- check e1 `withCrumb` COr e2
+  e2' <- check e2 `withCrumb` COr e1
   case (e1', e2') of
     (TBool, TBool) -> return TBool
     (_, TBool)     -> typeError $ "type error in the first argument of |, namely " ++ show e1 

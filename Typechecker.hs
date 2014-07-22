@@ -74,19 +74,19 @@ check (EVar name) = do
       Just t -> case crumb of
         Nothing -> addBinding name t
         Just cb -> case cb of
-          CPlus _ | t == TInt -> addBinding name TInt
-                   | otherwise -> typeError $ "type error in +"
-          COr   _ | t == TBool -> addBinding name TBool
-                   | otherwise -> typeError $ "type error in |"
-          CAbs _ -> addBinding name t
+          CPlus _ | t == TInt -> return TInt
+                  | otherwise -> typeError $ "type error in +"
+          COr   _ | t == TBool -> return TBool
+                  | otherwise -> typeError $ "type error in |"
+          CAbs _ -> return t
           -- @TODO: This is a trouble area, I suspect.
           CApp1 _ -> case t of
-            TLam _ _ -> addBinding name t
+            TLam _ _ -> return t
             _        -> typeError $ name ++ " is not a function"
           CApp2 e -> do
             t' <- check e
             case t' of
-              TLam typ _ | typ == t -> addBinding name t
+              TLam typ _ | typ == t -> return t
                          | otherwise -> typeError $ show e ++ " is not a function"
               _ -> typeError $ show e ++ " is not a function"
 
